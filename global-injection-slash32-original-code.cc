@@ -24,7 +24,6 @@
 #include <string>
 #include <cassert>
 
-a
 
 #include "ns3/csma-net-device.h"
 #include "ns3/core-module.h"
