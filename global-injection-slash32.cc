@@ -59,12 +59,15 @@ main(int argc, char* argv[])
     internet.SetRoutingHelper(staticonly); // has effect on the next Install ()
     internet.Install(NodeContainer(nC));
 
-    // ADD: Ensure P2P net devices use Ethernet-like MTU so packets are not fragmented
+    // Added to ensure P2P network devices uses a maximum frame size before fragmentation
+    // to match the standard Ethernet MTU size on Cisco devices
     Config::SetDefault("ns3::PointToPointNetDevice::Mtu", UintegerValue(1500));
 
     // We create the channels first without any IP addressing information
     PointToPointHelper p2p;
-    // CHANGE DataRate (link capacity) from "5Mbps"
+
+    // Change the DataRate (link capacity) from "5Mbps" to "1Gbps"
+    // to reflect the link capacity of the Gigabit Ethernet links used in the physical environment
     p2p.SetDeviceAttribute("DataRate", StringValue("1Gbps"));
     p2p.SetChannelAttribute("Delay", StringValue("1ms"));
     NetDeviceContainer dAdB = p2p.Install(nAnB);
@@ -131,16 +134,26 @@ main(int argc, char* argv[])
     uint16_t port = 9; // Discard port (RFC 863)
     OnOffHelper onoff("ns3::UdpSocketFactory",
                       Address(InetSocketAddress(ifInAddrC.GetLocal(), port)));
-    // CHANGE from "6000" to "100Mbps"
+    // CHANGE: from "6000" to "100Mbps"
     onoff.SetConstantRate(DataRate("100Mbps"));
 
-    // ADD limit to 15 packets
+    // ADDED: Declare numPackets to 15
+    // Not applied until combined with packetSize in MaxBytes
     uint32_t numPackets = 15;
-    // ADD payload size = 1472 bytes (15 * 1472 bytes = 22KB payload)
+
+    // ADDED: Declares packetSize 1472 bytes (15 * 1472 bytes = 22KB payload)
+    // Not applied until combined with numPackets in MaxBytes
     uint32_t packetSize = 1472;
+
+    // ADDED: Limits the total amount of data sent by the application
+    // Combined with numPackets = 15 and packetSize = 1472
+    // This ensures exactly 15 packets are transmitted
+    // (numPackets = 15) * (packetSize = 1472 bytes) = 22KB payload
     onoff.SetAttribute("MaxBytes", UintegerValue(numPackets * packetSize));
 
-    // CHANGE = added to match MTU payload
+    // ADDED: Defines the size of the UDP payload sent by the OnOff application
+    // aka amount of data per packet before headers are applied
+    // Combined with MTU = 1500 prevents fragmentation
     onoff.SetAttribute("PacketSize", UintegerValue(1472));
     ApplicationContainer apps = onoff.Install(nA);
     apps.Start(Seconds(1));
@@ -155,8 +168,8 @@ main(int argc, char* argv[])
 
     AsciiTraceHelper ascii;
 
-    p2p.EnableAsciiAll(ascii.CreateFileStream("global-routing-injection32-1g-test.tr"));
-    p2p.EnablePcapAll("global-routing-injection32-1g-test");
+    p2p.EnableAsciiAll(ascii.CreateFileStream("global-routing-injection32-1g.tr"));
+    p2p.EnablePcapAll("global-routing-injection32-1g");
 
     Simulator::Run();
     Simulator::Destroy();
